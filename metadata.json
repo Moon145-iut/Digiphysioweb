@@ -1,0 +1,8 @@
+{
+  "name": "FlexiPhysio Coach",
+  "description": "A mobile-first AI-powered physiotherapy and fitness companion featuring real-time pose detection, specialist checks, and personalized wellness guidance.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone"
+  ]
+}
