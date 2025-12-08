@@ -243,7 +243,7 @@ const MealsScreen: React.FC<MealsScreenProps> = ({ onBack, setContext }) => {
                      <h3 className="font-bold text-lg mb-3">Specialist Tips</h3>
                      <div className="bg-teal-50 border border-teal-100 rounded-2xl p-4 text-teal-900 text-sm leading-relaxed">
                          <div className="flex items-center gap-2 mb-2 text-teal-700 font-bold">
-                             <Sparkles size={16} /> FlexiPhysio AI
+                             <Sparkles size={16} /> DigiPhysio AI
                          </div>
                          {foodResult.healthTips}
                      </div>

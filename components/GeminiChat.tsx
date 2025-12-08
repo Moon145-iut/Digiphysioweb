@@ -13,7 +13,7 @@ const GeminiChat: React.FC<GeminiChatProps> = ({ userProfile, sessionContext }) 
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [messages, setMessages] = useState<{role: string, text: string}[]>([
-    { role: 'model', text: 'Hello. I am your FlexiPhysio Specialist. How is your body feeling today?' }
+    { role: 'model', text: 'Hello. I am your DigiPhysio Specialist. How is your body feeling today?' }
   ]);
   const scrollRef = useRef<HTMLDivElement>(null);
 

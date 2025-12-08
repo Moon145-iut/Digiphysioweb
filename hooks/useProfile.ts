@@ -66,5 +66,16 @@ export const useProfile = () => {
     refreshProfile: fetchProfile,
     updateProfile,
     uploadAvatar,
+    changePassword: async (currentPassword: string, newPassword: string) => {
+      const res = await fetch(`${BACKEND_BASE}/api/profile/password`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ currentPassword, newPassword }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || 'Failed to change password');
+      }
+    },
   };
 };

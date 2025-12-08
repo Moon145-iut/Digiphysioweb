@@ -17,6 +17,7 @@ interface HomeProps {
   onOpenProfile: () => void;
 }
 
+
 const HomeScreen: React.FC<HomeProps> = ({
   user,
   stats,

@@ -25,7 +25,7 @@ export const chatWithAssistant = async (
 
   const currentActivityContext = sessionContext ? `CURRENT STATUS: ${sessionContext}` : "CURRENT STATUS: Idle/Browsing.";
 
-  const systemInstruction = `You are "Dr. Flex", a senior physiotherapist and fitness specialist for the "FlexiPhysio Coach" app.
+  const systemInstruction = `You are "Dr. Flex", a senior physiotherapist and fitness specialist for the "DigiPhysio Coach" app.
   
   ${userContext}
   ${currentActivityContext}

@@ -1,7 +1,7 @@
 {
   "name": "physio-backend",
   "version": "1.0.0",
-  "description": "Minimal profile backend for FlexiPhysio",
+  "description": "Minimal profile backend for DigiPhysio",
   "main": "index.js",
   "scripts": {
     "start": "node index.js",

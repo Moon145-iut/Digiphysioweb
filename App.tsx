@@ -35,7 +35,9 @@ const App: React.FC = () => {
   // Subscription Modal State
   const [showSubscriptionModal, setShowSubscriptionModal] = useState(false);
   const [isProfileOpen, setProfileOpen] = useState(false);
-  const { profile, loading: profileLoading, updateProfile, uploadAvatar } = useProfile();
+  const [savingProfileChanges, setSavingProfileChanges] = useState(false);
+  const [savingPassword, setSavingPassword] = useState(false);
+  const { profile, loading: profileLoading, updateProfile, uploadAvatar, changePassword } = useProfile();
 
   // Load initial state
   useEffect(() => {
@@ -177,21 +179,24 @@ const App: React.FC = () => {
 
   const effectiveProfile = profile || fallbackProfile;
 
-  const handleProfileSave = async (partial: Partial<Profile>) => {
-    if (profile) {
-      await updateProfile(partial);
-    } else if (user && effectiveProfile) {
-      const updatedUser: UserProfile = {
-        ...user,
-        name: partial.name ?? user.name,
-        age: partial.age ?? user.age,
-        painAreas: [
-          ((partial.painArea ?? effectiveProfile.painArea) as any) || user.painAreas?.[0] || 'GENERAL',
-        ],
-        goals: [((partial.goal ?? effectiveProfile.goal) as any) || user.goals?.[0] || 'ACTIVE'],
-      };
-      setUser(updatedUser);
-      saveUser(updatedUser);
+  const handleProfileSave = async (newValues: Profile) => {
+    setSavingProfileChanges(true);
+    try {
+      if (profile) {
+        await updateProfile(newValues);
+      } else if (user) {
+        const updatedUser: UserProfile = {
+          ...user,
+          name: newValues.name ?? user.name,
+          age: newValues.age ?? user.age,
+          painAreas: [((newValues.painArea as any) || user.painAreas?.[0] || 'GENERAL')],
+          goals: [((newValues.goal as any) || user.goals?.[0] || 'ACTIVE')],
+        };
+        setUser(updatedUser);
+        saveUser(updatedUser);
+      }
+    } finally {
+      setSavingProfileChanges(false);
     }
   };
 
@@ -200,6 +205,18 @@ const App: React.FC = () => {
       await uploadAvatar(file);
     } else {
       alert('Profile image upload requires the backend server to be running.');
+    }
+  };
+
+  const handlePasswordChange = async (currentPassword: string, newPassword: string) => {
+    if (!profile) {
+      throw new Error('Password change requires the backend server to be running.');
+    }
+    setSavingPassword(true);
+    try {
+      await changePassword(currentPassword, newPassword);
+    } finally {
+      setSavingPassword(false);
     }
   };
 
@@ -265,6 +282,9 @@ const App: React.FC = () => {
           onClose={() => setProfileOpen(false)}
           onSave={handleProfileSave}
           onUploadAvatar={handleAvatarUpload}
+          onChangePassword={handlePasswordChange}
+          saving={savingProfileChanges}
+          savingPassword={savingPassword}
         />
       )}
 

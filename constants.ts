@@ -1,7 +1,7 @@
 
 import { MealDef } from './types';
 
-export const APP_NAME = "FlexiPhysio Coach";
+export const APP_NAME = "DigiPhysio Coach";
 
 // Local Storage Keys
 export const STORAGE_KEY_USER = "flexiphysio_user";

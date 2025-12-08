@@ -28,12 +28,15 @@ const defaultProfile = {
   painArea: 'KNEE',
   goal: 'REDUCE_PAIN',
   avatarUrl: null,
+  password: 'hackathon',
 };
 
 const readProfile = () => {
   try {
     const raw = fs.readFileSync(PROFILE_PATH, 'utf-8');
-    return JSON.parse(raw);
+    const parsed = JSON.parse(raw);
+    if (!parsed.password) parsed.password = defaultProfile.password;
+    return parsed;
   } catch {
     return { ...defaultProfile };
   }
@@ -44,6 +47,11 @@ const writeProfile = (profile) => {
 };
 
 let profile = readProfile();
+
+const sanitizeProfile = (data) => {
+  const { password, ...rest } = data;
+  return rest;
+};
 
 app.use(
   cors({
@@ -70,7 +78,7 @@ app.get('/api/health', (_, res) => {
 });
 
 app.get('/api/profile', (_, res) => {
-  res.json(profile);
+  res.json(sanitizeProfile(profile));
 });
 
 app.post('/api/profile', (req, res) => {
@@ -83,7 +91,7 @@ app.post('/api/profile', (req, res) => {
     ...(goal !== undefined ? { goal } : {}),
   };
   writeProfile(profile);
-  res.json(profile);
+  res.json(sanitizeProfile(profile));
 });
 
 app.post('/api/profile/avatar', upload.single('avatar'), (req, res) => {
@@ -94,6 +102,19 @@ app.post('/api/profile/avatar', upload.single('avatar'), (req, res) => {
   profile = { ...profile, avatarUrl: fileUrl };
   writeProfile(profile);
   res.json({ avatarUrl: fileUrl });
+});
+
+app.post('/api/profile/password', (req, res) => {
+  const { currentPassword, newPassword } = req.body;
+  if (!currentPassword || !newPassword) {
+    return res.status(400).json({ error: 'Current and new password required' });
+  }
+  if (profile.password && profile.password !== currentPassword) {
+    return res.status(403).json({ error: 'Current password is incorrect' });
+  }
+  profile = { ...profile, password: newPassword };
+  writeProfile(profile);
+  res.json({ success: true });
 });
 
 app.listen(PORT, () => {

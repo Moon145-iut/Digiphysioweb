@@ -145,7 +145,7 @@ const AuthScreen: React.FC<AuthScreenProps> = ({ onLogin }) => {
         <div className="w-20 h-20 bg-teal-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
           <span className="text-4xl">🧘</span>
         </div>
-        <h1 className="text-3xl font-bold text-gray-900 mb-2">FlexiPhysio</h1>
+        <h1 className="text-3xl font-bold text-gray-900 mb-2">DigiPhysio</h1>
         <p className="text-gray-500">Your AI-powered wellness companion.</p>
       </div>
 
