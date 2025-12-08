@@ -1,0 +1,8 @@
+{
+  "id": "demo-user",
+  "name": "Guest",
+  "age": 25,
+  "painArea": "KNEE",
+  "goal": "REDUCE_PAIN",
+  "avatarUrl": null
+}

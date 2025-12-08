@@ -3,6 +3,8 @@ import { UserProfile, DailyStats, EXERCISES, ExerciseDef, ExerciseSession, Exerc
 import { saveUser, loadUserLocal, getDailyStats, saveDailyStats, getAllStats, clearSession } from './services/storage';
 import { ArrowLeft } from 'lucide-react';
 import { getRehabExerciseDef } from './data/rehabExerciseLibrary';
+import { useProfile, Profile } from './hooks/useProfile';
+import { ProfilePanel } from './components/ProfilePanel';
 
 // Screens
 import AuthScreen from './screens/AuthScreen';
@@ -32,6 +34,8 @@ const App: React.FC = () => {
 
   // Subscription Modal State
   const [showSubscriptionModal, setShowSubscriptionModal] = useState(false);
+  const [isProfileOpen, setProfileOpen] = useState(false);
+  const { profile, loading: profileLoading, updateProfile, uploadAvatar } = useProfile();
 
   // Load initial state
   useEffect(() => {
@@ -160,6 +164,45 @@ const App: React.FC = () => {
     saveUser(updatedUser);
   };
 
+  const fallbackProfile: Profile | null = user
+    ? {
+        id: user.id,
+        name: user.name,
+        age: user.age,
+        painArea: user.painAreas?.[0] || user.exercisePreference?.area || 'GENERAL',
+        goal: user.goals?.[0] || 'ACTIVE',
+        avatarUrl: null,
+      }
+    : null;
+
+  const effectiveProfile = profile || fallbackProfile;
+
+  const handleProfileSave = async (partial: Partial<Profile>) => {
+    if (profile) {
+      await updateProfile(partial);
+    } else if (user && effectiveProfile) {
+      const updatedUser: UserProfile = {
+        ...user,
+        name: partial.name ?? user.name,
+        age: partial.age ?? user.age,
+        painAreas: [
+          ((partial.painArea ?? effectiveProfile.painArea) as any) || user.painAreas?.[0] || 'GENERAL',
+        ],
+        goals: [((partial.goal ?? effectiveProfile.goal) as any) || user.goals?.[0] || 'ACTIVE'],
+      };
+      setUser(updatedUser);
+      saveUser(updatedUser);
+    }
+  };
+
+  const handleAvatarUpload = async (file: File) => {
+    if (profile) {
+      await uploadAvatar(file);
+    } else {
+      alert('Profile image upload requires the backend server to be running.');
+    }
+  };
+
   if (!user) return <AuthScreen onLogin={handleLogin} />;
   if (!user.onboardingComplete) return <OnboardingScreen user={user} onComplete={handleOnboardingComplete} />;
   if (activeExercise) return <ExerciseSessionScreen exercise={activeExercise} onClose={handleExerciseComplete} />;
@@ -192,6 +235,9 @@ const App: React.FC = () => {
             onUpdateChecklist={handleChecklistUpdate}
             onNavigateToMeals={() => handleTabChange('meals')}
             onSaveRehabPreference={handleSaveRehabPreference}
+            profileName={profile?.name}
+            profileAvatar={profile?.avatarUrl || null}
+            onOpenProfile={() => setProfileOpen(true)}
         />
       )}
       
@@ -212,6 +258,24 @@ const App: React.FC = () => {
       <BottomNav currentTab={currentTab} onTabChange={handleTabChange} />
       
       <GeminiChat userProfile={user} sessionContext={sessionContext} />
+
+      {effectiveProfile && isProfileOpen && (
+        <ProfilePanel
+          profile={effectiveProfile}
+          onClose={() => setProfileOpen(false)}
+          onSave={handleProfileSave}
+          onUploadAvatar={handleAvatarUpload}
+        />
+      )}
+
+      {profile && isProfileOpen && (
+        <ProfilePanel
+          profile={profile}
+          onClose={() => setProfileOpen(false)}
+          onSave={updateProfile}
+          onUploadAvatar={uploadAvatar}
+        />
+      )}
     </div>
   </div>
   );

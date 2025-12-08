@@ -12,6 +12,9 @@ interface HomeProps {
   onNavigateToMeals: () => void;
   onUpdateChecklist: (key: string, val: boolean) => void;
   onSaveRehabPreference: (pref: ExercisePreference) => void;
+  profileName?: string;
+  profileAvatar?: string | null;
+  onOpenProfile: () => void;
 }
 
 const HomeScreen: React.FC<HomeProps> = ({
@@ -21,6 +24,9 @@ const HomeScreen: React.FC<HomeProps> = ({
   onNavigateToMeals,
   onUpdateChecklist,
   onSaveRehabPreference,
+  profileName,
+  profileAvatar,
+  onOpenProfile,
 }) => {
   // Data for the Ring Chart
   const pieData = [
@@ -170,6 +176,9 @@ const HomeScreen: React.FC<HomeProps> = ({
   ];
 
   const habitGroups = [...BASE_HABIT_GROUPS, ...dietHabits, ...supplementalHabits];
+  const welcomeName = (profileName || user.name || 'Guest').split(' ')[0];
+  const avatarSrc =
+    profileAvatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${profileName || user.name}`;
 
   // Filter exercises based on Pain Area
   const recommendedExercises = useMemo(() => {
@@ -210,35 +219,15 @@ const HomeScreen: React.FC<HomeProps> = ({
     <div className="min-h-screen bg-white text-gray-900 pb-28 font-sans w-full mx-auto max-w-5xl px-4 sm:px-6 lg:px-12">
       {/* Header */}
       <div className="pt-10 mb-6 flex justify-between items-center flex-wrap gap-4">
-        <div className="flex items-center gap-3">
-          <div className="w-12 h-12 rounded-full overflow-hidden border-2 border-teal-400">
-            <img
-              src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${user.name}`}
-              alt="Avatar"
-              className="w-full h-full bg-gray-200"
-            />
+        <button onClick={onOpenProfile} className="flex items-center gap-3 group focus:outline-none">
+          <div className="w-12 h-12 rounded-full overflow-hidden border-2 border-teal-400 group-hover:border-teal-600 transition">
+            <img src={avatarSrc} alt="Avatar" className="w-full h-full object-cover bg-gray-200" />
           </div>
-          <div>
-            <h1 className="text-xl font-bold leading-tight text-gray-900">Welcome {user.name.split(' ')[0]}!</h1>
-            <p className="text-gray-500 text-sm">Let's start your day</p>
+          <div className="text-left">
+            <h1 className="text-xl font-bold leading-tight text-gray-900">Welcome {profileName || welcomeName}!</h1>
+            <p className="text-gray-500 text-sm">Tap to view your details</p>
           </div>
-        </div>
-        <div className="w-10 h-10 bg-gray-100 border border-gray-200 rounded-full flex items-center justify-center text-teal-600">
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            width="20"
-            height="20"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          >
-            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
-            <circle cx="12" cy="7" r="4"></circle>
-          </svg>
-        </div>
+        </button>
       </div>
 
       {/* Summary Cards */}
