@@ -2,6 +2,10 @@
 
 An AI-powered wellness companion application that provides personalized rehabilitation exercises, meal plans, and specialist guidance for users recovering from injuries or managing chronic pain conditions.
 
+**##user flow**
+At first the user register with their **Banglalink number** that requires one time caas charge. after that the user puts input of age, pain area, and goal, based that the ml model suggests exercises, diet and some life style habits. The exercise are monitored by one of the most reliable ml model mediapipe, that detects the posture and based on that shows the accuracy score, and voice command the user. At the end of each session AI voice model provide a encouraging message to keep the user motivated. There is another premium option, that is specialist, the specialist take two different session based on that it provides exactly which reason the pain is happening, specifically, thus narrow downs the pain region and causes. Then suggests some medications for it. The specialist requires subscription before using, which is implemented via *Applink API*. So does the *CAAS* service.
+
+
 ## Features
 
 ###  Core Features
