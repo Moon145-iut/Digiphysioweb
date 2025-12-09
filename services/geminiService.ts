@@ -1,5 +1,6 @@
 import { GoogleGenAI } from "@google/genai";
 import { UserProfile, FoodAnalysisResult } from "../types";
+import { analyzeFoodText } from "./nutritionService";
 
 // Safe initialization
 const getAIClient = () => {
@@ -82,49 +83,38 @@ export const analyzeFoodPhoto = async (imageBase64: string): Promise<FoodAnalysi
   const base64Data = imageBase64.replace(/^data:image\/(png|jpeg|jpg);base64,/, "");
 
   try {
-    const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash', 
+    // Step 1: Ask Gemini to describe the food in a way that API Ninjas can understand
+    const prompt =
+      'You are a nutrition assistant. Look at this meal photo and respond ONLY with a short ingredient line ' +
+      'that a nutrition API can understand, such as: "1 cup cooked rice, 120g grilled chicken breast". ' +
+      'Be specific with quantities and cooking methods. Only respond with the ingredient line, nothing else.';
+
+    const gemRes = await ai.models.generateContent({
+      model: 'gemini-2.5-flash',
       contents: {
         parts: [
           { inlineData: { mimeType: 'image/jpeg', data: base64Data } },
-          { text: `Analyze this food image. 
-                   Return a strictly valid JSON object with these fields:
-                   - name (string): Short name of the dish.
-                   - tags (array of strings): e.g. ["High Protein", "Vegan", "Breakfast"].
-                   - calories (string): e.g. "400-500".
-                   - protein (string): e.g. "20g".
-                   - fat (string): e.g. "15g".
-                   - carbs (string): e.g. "50g".
-                   - fiber (string): e.g. "5g".
-                   - ingredients (array of strings): Predicted main ingredients.
-                   - healthTips (string): 2-3 sentences on benefits or improvements.
-                   - balanced (boolean): true/false.
-                   - summary (string): Very short overview.` 
-          }
+          { text: prompt }
         ]
-      },
-      config: {
-        responseMimeType: "application/json"
       }
     });
 
-    const text = response.text || "{}";
-    const result = JSON.parse(text);
+    const foodDescription = gemRes.text?.trim() || "";
+
+    if (!foodDescription) {
+      return fallback;
+    }
+
+    // Step 2: Call our backend nutrition API with the Gemini description
+    const nutrition = await analyzeFoodText(foodDescription);
+
+    // Step 3: Add a tag to indicate this came from photo detection
     return {
-        name: result.name || "Identified Food",
-        tags: result.tags || [],
-        calories: result.calories || "-",
-        protein: result.protein || "-",
-        fat: result.fat || "-",
-        carbs: result.carbs || "-",
-        fiber: result.fiber || "-",
-        ingredients: result.ingredients || [],
-        healthTips: result.healthTips || "Enjoy your meal!",
-        balanced: !!result.balanced,
-        summary: result.summary || ""
+      ...nutrition,
+      tags: [...(nutrition.tags || []), 'photo-ai'],
     };
   } catch (error) {
-    console.error("Gemini Vision Error:", error);
+    console.error("Food photo analysis error:", error);
     return fallback;
   }
 };

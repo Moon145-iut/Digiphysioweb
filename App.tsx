@@ -124,9 +124,10 @@ const App: React.FC = () => {
     }
   };
 
-  const handleExerciseComplete = (score: number, duration: number) => {
+  const handleExerciseComplete = (score: number, duration: number, reps?: number) => {
     setActiveExercise(null);
-    setSessionContext(`Just finished ${activeExercise?.title || 'exercise'}. Duration: ${Math.floor(duration)}s. Posture Score: ${score}/100.`);
+    const repText = reps && reps > 0 ? ` Reps: ${reps}.` : '';
+    setSessionContext(`Just finished ${activeExercise?.title || 'exercise'}. Duration: ${Math.floor(duration)}s. Posture Score: ${score}/100.${repText}`);
 
     if (duration > 5 && user && todayStats) {
         const newSession: ExerciseSession = {
@@ -134,7 +135,8 @@ const App: React.FC = () => {
             timestamp: Date.now(),
             exerciseName: activeExercise?.title || 'Workout',
             durationSeconds: duration,
-            avgPostureScore: score
+            avgPostureScore: score,
+            repsCompleted: reps
         };
 
         const updatedStats = {

@@ -74,6 +74,7 @@ export interface ExerciseSession {
   exerciseName: string;
   durationSeconds: number;
   avgPostureScore: number;
+  repsCompleted?: number;
 }
 
 export interface DailyStats {

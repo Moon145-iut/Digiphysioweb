@@ -19,6 +19,10 @@ const AuthScreen: React.FC<AuthScreenProps> = ({ onLogin }) => {
   const [loading, setLoading] = useState(false);
   const [verifying, setVerifying] = useState(false);
   const [pendingProfile, setPendingProfile] = useState<UserProfile | null>(null);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const backendBase = (import.meta.env.VITE_BACKEND_URL || '').replace(/\/$/, '');
+  const registrationFee =
+    import.meta.env.VITE_REGISTRATION_FEE || import.meta.env.VITE_REG_FEE || '1.00';
 
   const handleGuest = () => {
     const guestUser: UserProfile = {
@@ -36,11 +40,48 @@ const AuthScreen: React.FC<AuthScreenProps> = ({ onLogin }) => {
     onLogin(guestUser);
   };
 
-  const handleSendOtp = () => {
-    if (phone.length < 3) return alert("Please enter a valid number");
-    setStep('OTP');
-    // Simulate SMS API
-    console.log("OTP Sent");
+  const handleSendOtp = async () => {
+    if (phone.trim().length < 3) return alert("Please enter a valid Banglalink number");
+    if (!backendBase) return alert("Backend URL not configured. Check VITE_BACKEND_URL");
+    
+    setLoading(true);
+    setErrorMessage(null);
+    
+    try {
+      const response = await fetch(`${backendBase}/api/auth/request-otp`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone: phone.trim(), amount: registrationFee }),
+      });
+      
+      const data = await response.json();
+      
+      if (!response.ok) {
+        // Check for credential configuration issues
+        if (response.status === 503 || data.message?.includes('credentials')) {
+          setErrorMessage('⚠️ Server not configured. Applink CaaS credentials missing. Contact admin.');
+          console.error('Server config issue:', data);
+        } else if (response.status === 402) {
+          setErrorMessage(`Payment failed: ${data.statusDetail || data.error}`);
+          console.error('Payment error:', data);
+        } else {
+          setErrorMessage(data.error || "Failed to request OTP");
+        }
+        return;
+      }
+      
+      if (!data.success) {
+        throw new Error(data.error || "Failed to connect to Banglalink CaaS");
+      }
+      
+      setOtp('');
+      setStep('OTP');
+    } catch (error: any) {
+      setErrorMessage(error?.message || "Could not start paid registration. Please try again.");
+      console.error('Request OTP error:', error);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const goToUsernameCapture = (profile: UserProfile) => {
@@ -50,16 +91,26 @@ const AuthScreen: React.FC<AuthScreenProps> = ({ onLogin }) => {
   };
 
   const handleVerifyOtp = async () => {
-    if (otp.length !== 6) return alert("Enter any 6 digits for demo");
+    if (otp.length !== 6) return alert("Enter the 6-digit OTP sent by Banglalink");
+    if (!backendBase) return alert("Backend URL not configured");
     setVerifying(true);
+    setErrorMessage(null);
     try {
-      const remoteUser = await loadUser(phone);
-      if (remoteUser) {
-        onLogin(remoteUser);
+      const response = await fetch(`${backendBase}/api/auth/verify-otp`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone: phone.trim(), otp }),
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        setErrorMessage(data.error || "Could not verify OTP. Please try again.");
         return;
       }
+      if (!data.success) {
+        throw new Error(data.error || "Could not verify OTP. Please try again.");
+      }
       const user: UserProfile = {
-        id: phone,
+        id: phone.trim(),
         name: '',
         isGuest: false,
         age: 0,
@@ -68,9 +119,11 @@ const AuthScreen: React.FC<AuthScreenProps> = ({ onLogin }) => {
         goals: [],
         activityLevel: 'MEDIUM',
         onboardingComplete: false,
-        isSubscribed: false
+        isSubscribed: true
       };
       goToUsernameCapture(user);
+    } catch (error: any) {
+      setErrorMessage(error?.message || "Failed to verify OTP.");
     } finally {
       setVerifying(false);
     }
@@ -142,12 +195,18 @@ const AuthScreen: React.FC<AuthScreenProps> = ({ onLogin }) => {
   return (
     <div className="min-h-screen bg-white flex flex-col justify-center items-center p-6 text-center">
       <div className="mb-8">
-        <div className="w-20 h-20 bg-teal-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
-          <span className="text-4xl">🧘</span>
+        <div className="w-20 h-20 mx-auto mb-4">
+          <img src="/images.png" alt="DigiPhysio" className="w-full h-full object-contain" />
         </div>
         <h1 className="text-3xl font-bold text-gray-900 mb-2">DigiPhysio</h1>
         <p className="text-gray-500">Your AI-powered wellness companion.</p>
       </div>
+
+      {errorMessage && (
+        <div className="w-full max-w-sm mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
+          {errorMessage}
+        </div>
+      )}
 
       {step === 'LANDING' && (
         <div className="w-full max-w-sm space-y-4">
@@ -156,8 +215,11 @@ const AuthScreen: React.FC<AuthScreenProps> = ({ onLogin }) => {
             className="w-full py-3 px-4 bg-teal-600 text-white rounded-xl font-medium shadow-lg hover:bg-teal-700 transition-all flex items-center justify-center gap-2"
           >
             <Smartphone size={20} />
-            Login with Phone
+            Register via otp
           </button>
+          <p className="text-xs text-gray-500">
+            OTP verification will charge your Banglalink Mobile Account once. No OTP needed after registration.
+          </p>
           
           <button 
             onClick={() => setStep('EMAIL_SIGNUP')}
@@ -273,13 +335,17 @@ const AuthScreen: React.FC<AuthScreenProps> = ({ onLogin }) => {
             value={phone}
             onChange={(e) => setPhone(e.target.value)}
             className="w-full p-3 border border-gray-300 rounded-xl mb-4 focus:ring-2 focus:ring-teal-500 outline-none"
-            placeholder="+1 555 000 0000"
+            placeholder="+88017XXXXXXX"
           />
+          <p className="text-xs text-gray-500 mb-3">
+            We’ll send an OTP from Banglalink. Entering it will confirm a one-time ৳{registrationFee} charge and unlock your DigiPhysio account.
+          </p>
           <button 
             onClick={handleSendOtp}
-            className="w-full py-3 bg-teal-600 text-white rounded-xl font-bold"
+            disabled={loading}
+            className="w-full py-3 bg-teal-600 text-white rounded-xl font-bold disabled:opacity-60"
           >
-            Send OTP
+            {loading ? "Contacting Banglalink..." : "Pay & Send OTP"}
           </button>
           <button onClick={() => setStep('LANDING')} className="w-full mt-4 text-gray-500 text-sm">Cancel</button>
         </div>
@@ -287,7 +353,9 @@ const AuthScreen: React.FC<AuthScreenProps> = ({ onLogin }) => {
 
       {step === 'OTP' && (
         <div className="w-full max-w-sm text-left">
-          <label className="block text-sm font-medium text-gray-700 mb-1">Enter code (Any 6 digits)</label>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            Enter the 6-digit OTP from Banglalink
+          </label>
           <input 
             type="text" 
             value={otp}
@@ -301,7 +369,7 @@ const AuthScreen: React.FC<AuthScreenProps> = ({ onLogin }) => {
             disabled={verifying}
             className="w-full py-3 bg-teal-600 text-white rounded-xl font-bold disabled:opacity-60"
           >
-            {verifying ? "Checking..." : "Verify & Continue"}
+            {verifying ? "Verifying..." : "Confirm Payment"}
           </button>
         </div>
       )}

@@ -11,6 +11,7 @@
   "dependencies": {
     "@google/genai": "^1.31.0",
     "@mediapipe/tasks-vision": "0.10.14",
+    "cloudinary": "^2.8.0",
     "firebase": "^12.6.0",
     "lucide-react": "^0.556.0",
     "react": "^19.2.1",
