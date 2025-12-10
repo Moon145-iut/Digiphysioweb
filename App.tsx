@@ -202,6 +202,13 @@ const App: React.FC = () => {
     }
   };
 
+  const handleAvatarChange = async (avatarUrl: string) => {
+    if (user) {
+      setUser({ ...user, avatarUrl });
+      saveUser({ ...user, avatarUrl });
+    }
+  };
+
   const handleAvatarUpload = async (file: File) => {
     if (profile) {
       await uploadAvatar(file);
@@ -257,6 +264,7 @@ const App: React.FC = () => {
             profileName={profile?.name}
             profileAvatar={profile?.avatarUrl || null}
             onOpenProfile={() => setProfileOpen(true)}
+            onAvatarChange={handleAvatarChange}
         />
       )}
       

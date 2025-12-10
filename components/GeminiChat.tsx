@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { MessageCircle, X, Send, Loader, Stethoscope } from 'lucide-react';
 import { chatWithAssistant } from '../services/geminiService';
+import { saveChatMessage } from '../services/chatHistory';
 import { UserProfile } from '../types';
 
 interface GeminiChatProps {
@@ -31,10 +32,21 @@ const GeminiChat: React.FC<GeminiChatProps> = ({ userProfile, sessionContext }) 
     setInput('');
     setLoading(true);
 
+    // Save user message to Firestore if user is logged in
+    if (userProfile?.id) {
+      await saveChatMessage(userProfile.id, { role: 'user', text: userMsg });
+    }
+
     // Pass the session context to the service
     const reply = await chatWithAssistant(userMsg, userProfile, messages, sessionContext);
     
     setMessages(prev => [...prev, { role: 'model', text: reply }]);
+
+    // Save assistant message to Firestore if user is logged in
+    if (userProfile?.id) {
+      await saveChatMessage(userProfile.id, { role: 'model', text: reply });
+    }
+
     setLoading(false);
   };
 

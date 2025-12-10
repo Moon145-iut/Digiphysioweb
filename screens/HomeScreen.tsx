@@ -4,6 +4,7 @@ import { Play, ChevronRight, Footprints, Flame, CheckCircle, Circle } from 'luci
 import { PieChart, Pie, Cell, ResponsiveContainer } from 'recharts';
 import { REHAB_PROTOCOLS, PROTOCOL_SUMMARY_ROWS } from '../data/rehabProtocols';
 import { CONDITION_DIETS, GOAL_DIETS, HYDRATION_TIPS, VITAMIN_D_TIPS, CALCIUM_SOURCES } from '../data/bdDietPlans';
+import ProfileAvatar from '../components/ProfileAvatar';
 
 interface HomeProps {
   user: UserProfile;
@@ -15,6 +16,7 @@ interface HomeProps {
   profileName?: string;
   profileAvatar?: string | null;
   onOpenProfile: () => void;
+  onAvatarChange?: (avatarUrl: string) => void;
 }
 
 
@@ -28,6 +30,7 @@ const HomeScreen: React.FC<HomeProps> = ({
   profileName,
   profileAvatar,
   onOpenProfile,
+  onAvatarChange,
 }) => {
   // Data for the Ring Chart
   const pieData = [
@@ -220,14 +223,20 @@ const HomeScreen: React.FC<HomeProps> = ({
     <div className="min-h-screen bg-white text-gray-900 pb-28 font-sans w-full mx-auto max-w-5xl px-4 sm:px-6 lg:px-12">
       {/* Header */}
       <div className="pt-10 mb-6 flex justify-between items-center flex-wrap gap-4">
-        <button onClick={onOpenProfile} className="flex items-center gap-3 group focus:outline-none">
-          <div className="w-12 h-12 rounded-full overflow-hidden border-2 border-teal-400 group-hover:border-teal-600 transition">
-            <img src={avatarSrc} alt="Avatar" className="w-full h-full object-cover bg-gray-200" />
-          </div>
+        <div className="flex items-center gap-3 flex-1">
+          <ProfileAvatar
+            uid={user.id}
+            avatarUrl={profileAvatar || null}
+            name={profileName || user.name}
+            onAvatarChange={onAvatarChange}
+          />
           <div className="text-left">
             <h1 className="text-xl font-bold leading-tight text-gray-900">Welcome {profileName || welcomeName}!</h1>
-            <p className="text-gray-500 text-sm">Tap to view your details</p>
+            <p className="text-gray-500 text-sm">Tap avatar to upload photo</p>
           </div>
+        </div>
+        <button onClick={onOpenProfile} className="flex-shrink-0 px-4 py-2 bg-teal-500 hover:bg-teal-600 text-white rounded-lg text-sm font-medium transition">
+          Profile
         </button>
       </div>
 

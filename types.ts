@@ -66,6 +66,7 @@ export interface UserProfile {
   isSubscribed: boolean;
   subscriptionPlan?: 'WEEKLY' | 'MONTHLY';
   exercisePreference?: ExercisePreference;
+  avatarUrl?: string;
 }
 
 export interface ExerciseSession {

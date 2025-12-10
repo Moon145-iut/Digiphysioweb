@@ -9,7 +9,6 @@
   },
   "dependencies": {
     "@google/generative-ai": "^0.5.0",
-    "cloudinary": "^1.37.3",
     "cors": "^2.8.5",
     "express": "^4.19.2",
     "multer": "^1.4.5-lts.1",

@@ -117,7 +117,6 @@ const storage = multer.diskStorage({
 
 
 const upload = multer({ storage });
-const cloudinary = require('./cloudinary');
 
 app.get('/api/health', (_, res) => {
   res.json({ 
@@ -145,26 +144,6 @@ app.post('/api/profile', (req, res) => {
   res.json(sanitizeProfile(profile));
 });
 
-
-app.post('/api/profile/avatar', upload.single('avatar'), async (req, res) => {
-  if (!req.file) {
-    return res.status(400).json({ error: 'No file uploaded' });
-  }
-  try {
-    // Upload to Cloudinary
-    const result = await cloudinary.uploader.upload(req.file.path, {
-      folder: 'profile_avatars',
-      resource_type: 'image',
-    });
-    // Remove local file after upload
-    fs.unlinkSync(req.file.path);
-    profile = { ...profile, avatarUrl: result.secure_url };
-    writeProfile(profile);
-    res.json({ avatarUrl: result.secure_url });
-  } catch (err) {
-    res.status(500).json({ error: 'Cloud upload failed', detail: err.message });
-  }
-});
 
 app.post('/api/profile/password', (req, res) => {
   const { currentPassword, newPassword } = req.body;

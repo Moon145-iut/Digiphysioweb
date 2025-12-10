@@ -2,9 +2,9 @@ import { GoogleGenAI } from "@google/genai";
 import { UserProfile, FoodAnalysisResult } from "../types";
 import { analyzeFoodText } from "./nutritionService";
 
-// Safe initialization
+// Safe initialization - use Vite's runtime env for frontend
 const getAIClient = () => {
-  const apiKey = process.env.API_KEY;
+  const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
   if (!apiKey) return null;
   return new GoogleGenAI({ apiKey });
 };
@@ -17,7 +17,7 @@ export const chatWithAssistant = async (
 ): Promise<string> => {
   const ai = getAIClient();
   if (!ai) {
-    return "I'm sorry, I cannot connect to the Specialist service right now (Missing API Key).";
+    return "I'm sorry, I cannot connect to the Specialist service right now (Missing API Key). Please ensure VITE_GEMINI_API_KEY is set in environment.";
   }
 
   const userContext = userProfile 

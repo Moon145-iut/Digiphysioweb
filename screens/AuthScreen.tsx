@@ -3,6 +3,7 @@ import { UserProfile } from '../types';
 import { Smartphone, User, Mail, LogIn } from 'lucide-react';
 import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword } from "firebase/auth";
 import { loadUser } from '../services/storage';
+import { loadUserProfile } from '../services/profileService';
 
 interface AuthScreenProps {
   onLogin: (user: UserProfile) => void;
@@ -163,7 +164,13 @@ const AuthScreen: React.FC<AuthScreenProps> = ({ onLogin }) => {
       const res = await signInWithEmailAndPassword(auth, email, password);
       const stored = await loadUser(res.user.uid);
       if (stored) {
-        onLogin(stored);
+        // Load avatar URL from Firestore if available
+        const profileData = await loadUserProfile(res.user.uid);
+        const userWithAvatar = {
+          ...stored,
+          ...(profileData?.avatarUrl && { avatarUrl: profileData.avatarUrl }),
+        };
+        onLogin(userWithAvatar);
       } else {
         const user: UserProfile = {
           id: res.user.uid,
