@@ -119,9 +119,10 @@ npm install
 
 # Create .env file with:
 VITE_BACKEND_URL=http://localhost:4000
-VITE_FIREBASE_API_KEY=your_firebase_key
-VITE_FIREBASE_PROJECT_ID=your_project_id
 VITE_GEMINI_API_KEY=your_gemini_key
+VITE_SUPABASE_URL=https://your-project.supabase.co
+VITE_SUPABASE_ANON_KEY=public-anon-key
+VITE_SUPABASE_BUCKET=profile-avatars
 
 # Start dev server
 npm run dev
@@ -144,6 +145,17 @@ BASE_URL=http://localhost:4000
 npm start
 ```
 
+> When deploying, set `FRONTEND_ORIGIN` to your Netlify/Vercel domain so CORS allows the web client to reach the Express API.
+
+### Avatar Storage (Supabase)
+
+1. Create a **public** Storage bucket in Supabase (e.g., `profile-avatars`).
+2. Grab the project URL and anon key from the Supabase dashboard.
+3. Add `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, and `VITE_SUPABASE_BUCKET` to your `.env.local`.
+4. Deployments must also expose the same variables so the frontend can talk directly to Supabase Storage.
+
+> The frontend uploads the file straight to Supabase, then posts the returned public URL to `/api/profile`. The backend simply persists the URL inside `backend/data/profile.json`.
+
 ## API Endpoints
 
 ### Authentication
@@ -152,8 +164,7 @@ npm start
 
 ### Profile Management
 - `GET /api/profile` - Get user profile
-- `POST /api/profile` - Update user profile
-- `POST /api/profile/avatar` - Upload avatar
+- `POST /api/profile` - Update user profile (name, age, painArea, goal, avatarUrl)
 - `POST /api/profile/password` - Change password
 
 ### Webhooks

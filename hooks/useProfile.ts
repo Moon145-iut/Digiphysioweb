@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { uploadAvatarToSupabase } from '../services/avatarUpload';
 
 export interface Profile {
   id: string;
@@ -48,15 +49,11 @@ export const useProfile = () => {
   };
 
   const uploadAvatar = async (file: File) => {
-    const form = new FormData();
-    form.append('avatar', file);
-    const res = await fetch(`${BACKEND_BASE}/api/profile/avatar`, {
-      method: 'POST',
-      body: form,
-    });
-    if (!res.ok) throw new Error('Failed to upload avatar');
-    const data = await res.json();
-    setProfile((prev) => (prev ? { ...prev, avatarUrl: data.avatarUrl } : prev));
+    if (!profile) {
+      throw new Error('Profile must be loaded before uploading an avatar.');
+    }
+    const avatarUrl = await uploadAvatarToSupabase(file, profile.id);
+    await updateProfile({ avatarUrl });
   };
 
   return {

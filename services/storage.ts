@@ -1,7 +1,7 @@
 import { db } from './firebase';
 import { doc, setDoc, getDoc } from "firebase/firestore";
 import { UserProfile, DailyStats } from '../types';
-import { STORAGE_KEY_USER as KEY_USER, STORAGE_KEY_STATS as KEY_STATS } from '../constants';
+import { STORAGE_KEY_USER as KEY_USER, STORAGE_KEY_STATS as KEY_STATS, STORAGE_KEY_SESSION as KEY_SESSION } from '../constants';
 
 // Helper to get user-specific stats key
 const getStatsKey = (userId: string) => `${KEY_STATS}_${userId || 'guest'}`;
@@ -36,6 +36,18 @@ export const saveUserLocal = (user: UserProfile) => {
   localStorage.setItem(KEY_USER, JSON.stringify(user));
 };
 
+export const markSessionActive = () => {
+  localStorage.setItem(KEY_SESSION, '1');
+};
+
+export const markSessionInactive = () => {
+  localStorage.removeItem(KEY_SESSION);
+};
+
+export const hasActiveSession = () => {
+  return localStorage.getItem(KEY_SESSION) === '1';
+};
+
 export const loadUserLocal = (): UserProfile | null => {
   const data = localStorage.getItem(KEY_USER);
   return data ? JSON.parse(data) : null;
@@ -44,6 +56,7 @@ export const loadUserLocal = (): UserProfile | null => {
 export const clearSession = () => {
   const user = loadUserLocal();
   localStorage.removeItem(KEY_USER);
+  localStorage.removeItem(KEY_SESSION);
   if (user) {
     localStorage.removeItem(getStatsKey(user.id));
   }

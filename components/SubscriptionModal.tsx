@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { X, CheckCircle, CreditCard, ShieldCheck } from 'lucide-react';
 
 interface SubscriptionModalProps {
@@ -10,14 +10,48 @@ interface SubscriptionModalProps {
 const SubscriptionModal: React.FC<SubscriptionModalProps> = ({ onClose, onSubscribe }) => {
   const [selectedPlan, setSelectedPlan] = useState<'WEEKLY' | 'MONTHLY'>('MONTHLY');
   const [processing, setProcessing] = useState(false);
+  const [phone, setPhone] = useState('');
+  const [statusMessage, setStatusMessage] = useState<string | null>(null);
+  const backendBase = useMemo(() => (import.meta.env.VITE_BACKEND_URL || '').replace(/\/$/, ''), []);
 
-  const handlePayment = () => {
+  const handlePayment = async () => {
+    if (!backendBase) {
+      setStatusMessage('Backend URL is not configured.');
+      return;
+    }
+    if (!phone.trim()) {
+      setStatusMessage('Please enter your Banglalink number.');
+      return;
+    }
+
     setProcessing(true);
-    // Simulate API delay
-    setTimeout(() => {
-      setProcessing(false);
+    setStatusMessage('Contacting Banglalink...');
+    try {
+      const response = await fetch(`${backendBase}/api/subscription/send`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          phone,
+          action: '1',
+          plan: selectedPlan,
+          notify: true,
+          frequency: selectedPlan === 'WEEKLY' ? 'weekly' : 'monthly',
+          status: 'REGISTERED.',
+        }),
+      });
+
+      const data = await response.json();
+      if (!response.ok || data.success === false) {
+        throw new Error(data.error || data.response?.statusDetail || 'Subscription failed.');
+      }
+
+      setStatusMessage('Subscription confirmed! You should receive an SMS shortly.');
       onSubscribe(selectedPlan);
-    }, 2000);
+    } catch (error: any) {
+      setStatusMessage(error?.message || 'Subscription failed. Please try again.');
+    } finally {
+      setProcessing(false);
+    }
   };
 
   return (
@@ -88,9 +122,26 @@ const SubscriptionModal: React.FC<SubscriptionModalProps> = ({ onClose, onSubscr
             </button>
           </div>
 
+          <div className="text-left mb-6 space-y-2">
+            <label className="block text-sm font-semibold text-gray-600">
+              Banglalink Number
+            </label>
+            <input
+              type="tel"
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              placeholder="+8801XXXXXXXXX"
+              className="w-full border border-gray-200 rounded-xl px-4 py-3 focus:ring-2 focus:ring-teal-500 outline-none"
+              disabled={processing}
+            />
+            <p className="text-xs text-gray-400">
+              We’ll trigger an official Banglalink subscription for Specialist access and send you an SMS confirmation.
+            </p>
+          </div>
+
           <button
             onClick={handlePayment}
-            disabled={processing}
+            disabled={processing || !phone.trim()}
             className="w-full py-4 bg-teal-600 text-white rounded-xl font-bold text-lg shadow-lg hover:bg-teal-700 disabled:opacity-70 flex items-center justify-center gap-2"
           >
             {processing ? (
@@ -101,8 +152,11 @@ const SubscriptionModal: React.FC<SubscriptionModalProps> = ({ onClose, onSubscr
                 </>
             )}
           </button>
+          {statusMessage && (
+            <p className="mt-4 text-sm text-gray-600">{statusMessage}</p>
+          )}
           <p className="mt-4 text-xs text-gray-400">
-             Note: This is a demo. No actual money will be charged.
+             Testing mode: use your whitelisted Banglalink number.
           </p>
         </div>
       </div>

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { UserProfile, DailyStats, EXERCISES, ExerciseDef, ExerciseSession, ExercisePreference } from './types';
-import { saveUser, loadUserLocal, getDailyStats, saveDailyStats, getAllStats, clearSession } from './services/storage';
+import { saveUser, loadUserLocal, getDailyStats, saveDailyStats, getAllStats, clearSession, hasActiveSession, markSessionActive, markSessionInactive } from './services/storage';
 import { ArrowLeft } from 'lucide-react';
 import { getRehabExerciseDef } from './data/rehabExerciseLibrary';
 import { useProfile, Profile } from './hooks/useProfile';
@@ -41,6 +41,9 @@ const App: React.FC = () => {
 
   // Load initial state
   useEffect(() => {
+    if (!hasActiveSession()) {
+      return;
+    }
     const loadedUser = loadUserLocal();
     if (loadedUser) {
       setUser(loadedUser);
@@ -49,9 +52,20 @@ const App: React.FC = () => {
     }
   }, []);
 
+  useEffect(() => {
+    const handleUnload = () => {
+      markSessionInactive();
+    };
+    window.addEventListener('beforeunload', handleUnload);
+    return () => {
+      window.removeEventListener('beforeunload', handleUnload);
+    };
+  }, []);
+
   const handleLogin = (u: UserProfile) => {
     setUser(u);
     saveUser(u);
+    markSessionActive();
     const todayStr = new Date().toISOString().split('T')[0];
     setTodayStats(getDailyStats(todayStr, u.id));
   };
@@ -59,6 +73,7 @@ const App: React.FC = () => {
   const handleOnboardingComplete = (updatedUser: UserProfile) => {
     setUser(updatedUser);
     saveUser(updatedUser);
+    markSessionActive();
     const todayStr = new Date().toISOString().split('T')[0];
     setTodayStats(getDailyStats(todayStr, updatedUser.id));
   };
@@ -261,8 +276,8 @@ const App: React.FC = () => {
             onUpdateChecklist={handleChecklistUpdate}
             onNavigateToMeals={() => handleTabChange('meals')}
             onSaveRehabPreference={handleSaveRehabPreference}
-            profileName={profile?.name}
-            profileAvatar={profile?.avatarUrl || null}
+            profileName={profile?.name || user.name}
+            profileAvatar={profile?.avatarUrl || user.avatarUrl || null}
             onOpenProfile={() => setProfileOpen(true)}
             onAvatarChange={handleAvatarChange}
         />

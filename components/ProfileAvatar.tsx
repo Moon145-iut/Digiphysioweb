@@ -1,7 +1,6 @@
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Camera } from 'lucide-react';
-import { uploadAvatarToCloudinary } from '../services/avatarUpload';
-import { saveUserAvatar } from '../services/profileService';
+import { uploadAvatarToSupabase } from '../services/avatarUpload';
 
 interface ProfileAvatarProps {
   uid: string;
@@ -19,12 +18,29 @@ export const ProfileAvatar: React.FC<ProfileAvatarProps> = ({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const previewUrlRef = useRef<string | null>(null);
 
   const generatePlaceholderAvatar = (text: string) => {
     return `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(text)}`;
   };
 
-  const displayUrl = avatarUrl || generatePlaceholderAvatar(name);
+  const displayUrl = previewUrl || avatarUrl || generatePlaceholderAvatar(name);
+
+  useEffect(() => {
+    return () => {
+      if (previewUrlRef.current) {
+        URL.revokeObjectURL(previewUrlRef.current);
+        previewUrlRef.current = null;
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    if (previewUrl && !previewUrl.startsWith('blob:') && avatarUrl === previewUrl) {
+      setPreviewUrl(null);
+    }
+  }, [avatarUrl, previewUrl]);
 
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -46,17 +62,32 @@ export const ProfileAvatar: React.FC<ProfileAvatarProps> = ({
     setError(null);
 
     try {
-      // Upload to Cloudinary
-      const cloudinaryUrl = await uploadAvatarToCloudinary(file);
+      if (previewUrlRef.current) {
+        URL.revokeObjectURL(previewUrlRef.current);
+      }
+      const nextPreview = URL.createObjectURL(file);
+      previewUrlRef.current = nextPreview;
+      setPreviewUrl(nextPreview);
 
-      // Save URL to Firestore
-      await saveUserAvatar(uid, cloudinaryUrl);
+      // Upload to Supabase Storage
+      const avatarUrl = await uploadAvatarToSupabase(file, uid);
 
-      // Update parent component
-      onAvatarChange(cloudinaryUrl);
+      // Update parent component and swap to the hosted URL
+      onAvatarChange(avatarUrl);
+      setPreviewUrl(avatarUrl);
+
+      if (previewUrlRef.current) {
+        URL.revokeObjectURL(previewUrlRef.current);
+        previewUrlRef.current = null;
+      }
     } catch (err: any) {
       console.error('Avatar upload failed:', err);
       setError(err.message || 'Failed to upload avatar');
+      if (previewUrlRef.current) {
+        URL.revokeObjectURL(previewUrlRef.current);
+        previewUrlRef.current = null;
+      }
+      setPreviewUrl(null);
     } finally {
       setUploading(false);
       // Reset file input

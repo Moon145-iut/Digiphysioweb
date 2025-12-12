@@ -6,6 +6,7 @@ export const APP_NAME = "DigiPhysio Coach";
 // Local Storage Keys
 export const STORAGE_KEY_USER = "flexiphysio_user";
 export const STORAGE_KEY_STATS = "flexiphysio_stats";
+export const STORAGE_KEY_SESSION = "flexiphysio_session_active";
 
 // Color Palette (Tailwind classes used directly, but refs here)
 export const COLORS = {

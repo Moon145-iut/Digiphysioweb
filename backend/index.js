@@ -39,6 +39,10 @@ const CAAS_PASSWORD = process.env.CAAS_PASSWORD || APPLINK_PASSWORD;
 const CAAS_PAYMENT_INSTRUMENT = process.env.CAAS_PAYMENT_INSTRUMENT || 'Mobile Account';
 const CAAS_AMOUNT = process.env.CAAS_AMOUNT || '1.00';
 const CAAS_CURRENCY = process.env.CAAS_CURRENCY || 'BDT';
+const SUBSCRIPTION_SEND_URL =
+  process.env.SUBSCRIPTION_SEND_URL || 'https://api.applink.com.bd/subscription/send';
+const SUBSCRIPTION_NOTIFY_URL =
+  process.env.SUBSCRIPTION_NOTIFY_URL || 'https://api.applink.com.bd/subscription/notify';
 const DATA_DIR = path.join(__dirname, 'data');
 const UPLOAD_DIR = path.join(__dirname, 'uploads');
 const PROFILE_PATH = path.join(DATA_DIR, 'profile.json');
@@ -77,7 +81,8 @@ const writeProfile = (profile) => {
 };
 
 let profile = readProfile();
-const caasStore = new Map();
+const caasRequestStore = new Map(); // key: requestCorrelator
+const caasPhoneIndex = new Map();   // key: msisdn -> requestCorrelator
 
 const normalizePhone = (value = '') => {
   let trimmed = value.trim();
@@ -95,6 +100,61 @@ const generateExternalTrxId = () =>
 const sanitizeProfile = (data) => {
   const { password, ...rest } = data;
   return rest;
+};
+
+const ensureApplinkConfigured = () => {
+  if (!CAAS_APP_ID || !CAAS_PASSWORD) {
+    throw new Error('AppLink credentials are not configured.');
+  }
+};
+
+const callApplink = async (endpoint, payload, label = 'AppLink') => {
+  ensureApplinkConfigured();
+  try {
+    const response = await fetch(endpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json;charset=utf-8' },
+      body: JSON.stringify(payload),
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      throw new Error(data.statusDetail || data.error || `${label} HTTP ${response.status}`);
+    }
+    const statusCode = data.statusCode || data.code;
+    if (statusCode && !/^S|P/.test(statusCode)) {
+      throw new Error(data.statusDetail || data.error || `${label} request rejected`);
+    }
+    return data;
+  } catch (error) {
+    console.error(`${label} error:`, error);
+    throw error;
+  }
+};
+
+const formatNotifyTimestamp = () => {
+  const now = new Date();
+  const parts = [
+    String(now.getFullYear()).slice(-2),
+    String(now.getMonth() + 1).padStart(2, '0'),
+    String(now.getDate()).padStart(2, '0'),
+    String(now.getHours()).padStart(2, '0'),
+    String(now.getMinutes()).padStart(2, '0'),
+  ];
+  return parts.join('');
+};
+
+const sendSubscriptionNotification = async (subscriberId, status = 'REGISTERED.', frequency = 'monthly') => {
+  if (!SUBSCRIPTION_NOTIFY_URL) return null;
+  const notifyPayload = {
+    timeStamp: formatNotifyTimestamp(),
+    version: '1.0',
+    applicationId: CAAS_APP_ID,
+    password: CAAS_PASSWORD,
+    subscriberId,
+    frequency,
+    status,
+  };
+  return callApplink(SUBSCRIPTION_NOTIFY_URL, notifyPayload, 'subscription/notify');
 };
 
 app.use(
@@ -132,13 +192,14 @@ app.get('/api/profile', (_, res) => {
 });
 
 app.post('/api/profile', (req, res) => {
-  const { name, age, painArea, goal } = req.body;
+  const { name, age, painArea, goal, avatarUrl } = req.body;
   profile = {
     ...profile,
     ...(name !== undefined ? { name } : {}),
     ...(age !== undefined ? { age: Number(age) || profile.age } : {}),
     ...(painArea !== undefined ? { painArea } : {}),
     ...(goal !== undefined ? { goal } : {}),
+    ...(avatarUrl !== undefined ? { avatarUrl } : {}),
   };
   writeProfile(profile);
   res.json(sanitizeProfile(profile));
@@ -272,59 +333,149 @@ app.post('/api/food/nutrition', async (req, res) => {
 app.post('/api/auth/request-otp', async (req, res) => {
   const { phone, amount } = req.body;
   const msisdn = normalizePhone(phone);
+  if (!msisdn) {
+    return res.status(400).json({ success: false, error: 'Valid Banglalink number is required.' });
+  }
   const externalTrxId = generateExternalTrxId();
-  
-  // Mock response for testing
-  console.log('Mock OTP Request:', { phone, msisdn, amount });
-  
-  const mockCorrelator = `MOCK_${Date.now()}`;
-  
-  caasStore.set(msisdn, {
+  const chargeAmount = amount || CAAS_AMOUNT;
+
+  const payload = {
+    applicationId: CAAS_APP_ID,
+    password: CAAS_PASSWORD,
     externalTrxId,
-    requestCorrelator: mockCorrelator,
-    internalTrxId: `MOCK_TRX_${externalTrxId}`,
-  });
-  
-  // Return success with mock correlator
-  res.json({ 
-    success: true, 
-    requestCorrelator: mockCorrelator,
-    message: 'Mock OTP sent successfully',
-    phone: msisdn 
-  });
+    amount: String(chargeAmount || '1.00'),
+    paymentInstrumentName: CAAS_PAYMENT_INSTRUMENT,
+    subscriberId: msisdn,
+    Currency: CAAS_CURRENCY,
+  };
+
+  try {
+    const response = await callApplink(CAAS_DIRECT_DEBIT, payload, 'caas/direct-debit');
+    const correlator = response.requestCorrelator;
+    if (!correlator) {
+      throw new Error('Applink response missing requestCorrelator');
+    }
+
+    caasRequestStore.set(correlator, {
+      msisdn,
+      externalTrxId,
+      internalTrxId: response.internalTrxId || null,
+      createdAt: Date.now(),
+    });
+    caasPhoneIndex.set(msisdn, correlator);
+
+    res.json({
+      success: true,
+      phone: msisdn,
+      externalTrxId,
+      requestCorrelator: correlator,
+      statusCode: response.statusCode,
+      statusDetail: response.statusDetail,
+      timeStamp: response.timeStamp,
+    });
+  } catch (error) {
+    res.status(502).json({
+      success: false,
+      error: error.message || 'Failed to contact Applink',
+    });
+  }
 });
 
 app.post('/api/auth/verify-otp', async (req, res) => {
-  const { phone, otp } = req.body;
+  const { phone, otp, referenceNo } = req.body;
   const msisdn = normalizePhone(phone);
-  const record = caasStore.get(msisdn);
-  
-  // Mock OTP verification
-  console.log('Mock OTP Verify:', { msisdn, otp, hasRecord: !!record });
-
-  // In mock mode, accept any 6-digit OTP
-  if (!otp || otp.length !== 6) {
-    return res.json({ 
-      success: false, 
-      error: 'OTP must be 6 digits' 
-    });
+  if (!otp || String(otp).length !== 6) {
+    return res.status(400).json({ success: false, error: 'OTP must be 6 digits.' });
+  }
+  if (!msisdn) {
+    return res.status(400).json({ success: false, error: 'Valid Banglalink number is required.' });
   }
 
+  const correlator = referenceNo || caasPhoneIndex.get(msisdn);
+  const record = correlator ? caasRequestStore.get(correlator) : null;
   if (!record) {
-    return res.json({ 
-      success: false, 
-      error: 'No OTP request found. Please request OTP first.' 
+    return res.status(404).json({
+      success: false,
+      error: 'No OTP session found. Please request a new OTP.',
     });
   }
 
-  // Mock success response
-  caasStore.delete(msisdn);
-  res.json({ 
-    success: true, 
-    referenceNo: record.requestCorrelator,
-    message: 'Mock OTP verified successfully',
-    phone: msisdn 
-  });
+  const payload = {
+    applicationId: CAAS_APP_ID,
+    password: CAAS_PASSWORD,
+    referenceNo: correlator,
+    otp: String(otp),
+    sourceAddress: msisdn,
+  };
+
+  try {
+    const response = await callApplink(CAAS_OTP_VERIFY, payload, 'caas/otp-verify');
+    caasRequestStore.delete(correlator);
+    caasPhoneIndex.delete(msisdn);
+
+    res.json({
+      success: true,
+      phone: msisdn,
+      referenceNo: correlator,
+      statusCode: response.statusCode,
+      statusDetail: response.statusDetail || 'OTP verified',
+    });
+  } catch (error) {
+    res.status(502).json({
+      success: false,
+      error: error.message || 'OTP verification failed',
+    });
+  }
+});
+
+app.post('/api/subscription/send', async (req, res) => {
+  const { phone, action = '1', frequency = 'monthly', notify = true, status = 'REGISTERED.' } = req.body;
+  const msisdn = normalizePhone(phone);
+  if (!msisdn) {
+    return res.status(400).json({ success: false, error: 'Valid Banglalink number is required.' });
+  }
+
+  const payload = {
+    applicationId: CAAS_APP_ID,
+    password: CAAS_PASSWORD,
+    subscriberId: msisdn,
+    action: String(action),
+  };
+
+  try {
+    const response = await callApplink(SUBSCRIPTION_SEND_URL, payload, 'subscription/send');
+    let notifyResponse = null;
+    if (notify && action === '1') {
+      notifyResponse = await sendSubscriptionNotification(msisdn, status, frequency);
+    }
+    res.json({
+      success: true,
+      response,
+      notification: notifyResponse,
+    });
+  } catch (error) {
+    res.status(502).json({
+      success: false,
+      error: error.message || 'Subscription request failed',
+    });
+  }
+});
+
+app.post('/api/subscription/notify', async (req, res) => {
+  const { phone, frequency = 'monthly', status = 'REGISTERED.' } = req.body;
+  const msisdn = normalizePhone(phone);
+  if (!msisdn) {
+    return res.status(400).json({ success: false, error: 'Valid Banglalink number is required.' });
+  }
+  try {
+    const notifyResponse = await sendSubscriptionNotification(msisdn, status, frequency);
+    res.json({ success: true, response: notifyResponse });
+  } catch (error) {
+    res.status(502).json({
+      success: false,
+      error: error.message || 'Notification failed',
+    });
+  }
 });
 
 app.post('/applink/sms/receive', (req, res) => {
@@ -338,7 +489,15 @@ app.post('/applink/sms/report', (req, res) => {
 });
 
 app.post('/caas/chargingNotification', (req, res) => {
-  console.log('CaaS charging notification:', req.body);
+  const payload = req.body || {};
+  console.log('CaaS charging notification:', payload);
+  const reference = payload.referenceId || payload.referenceNo;
+  if (reference && caasRequestStore.has(reference)) {
+    caasRequestStore.delete(reference);
+  }
+  if (payload.sourceAddress) {
+    caasPhoneIndex.delete(payload.sourceAddress);
+  }
   res.json({ statusCode: 'S1000', statusDetail: 'Notification received.' });
 });
 
