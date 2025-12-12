@@ -502,7 +502,7 @@ app.post('/caas/chargingNotification', (req, res) => {
 });
 
 // ===== START SERVER =====
-app.listen(PORT, () => {
+app.listen(PORT, '0.0.0.0', () => {
   console.log(`Backend listening on port ${PORT}`);
   console.log(`Frontend origin: ${FRONTEND_ORIGIN}`);
   if (API_NINJAS_KEY) {
